@@ -166,7 +166,7 @@ class Firewall:
                 rule(target='dfw-user-output')
             ]),
             UserChain('dfw-user-output', comment='dfw-user-output', rules=[
-                rule(proto=r.protocol, iface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=DFW_USER_RULE)
+                rule(proto=r.protocol, oface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=DFW_USER_RULE)
                 for r in self.config.output_rules
             ]),
             UserChain('dfw-after-output', comment='dfw-after-output', rules=[]),
