@@ -13,60 +13,61 @@ def _parse_optional(args: list[str], keyword: str) -> Optional[str]:
         result = None
     return result
 
+def _parse_address(args: list[str], keyword: str) -> Optional[str]:
+    adr = _parse_optional(args, keyword)
+    if adr == 'any':
+        adr = '0.0.0.0/0'
+    return adr
+
 
 class Rule(BaseModel):
     index: int
     command: str
     interface: Optional[str]
     protocol: Optional[str]
-    address: Optional[str]
-    port: Optional[int]
+    src_address: Optional[str]
+    src_port: Optional[int]
+    dst_address: Optional[str]
+    dst_port: Optional[int]
 
     @staticmethod
-    def from_string(idx:int, direction:str, rule:str) -> "Rule":
+    def from_string(idx:int, rule:str) -> "Rule":
         args = [r for r in rule.split(' ') if len(r) > 1]
-        return Rule.from_args(idx, direction, args)
+        return Rule.from_args(idx, args)
 
     @staticmethod
-    def from_args(idx:int, direction:str, args:list[str]) -> "Rule":
+    def from_args(idx:int, args:list[str]) -> "Rule":
         if len(args) < 2:
             raise Exception(f'Invalid rule format, need at least 2 arguments. Rule: {" ".join(args)}')
 
         # Parse command
         command = args[0]
-        if command not in ['allow', 'deny']:
-            raise Exception(f'Invalid rule command: must be "allow" or "deny". Rule: {" ".join(args)}')
+        if command not in ['allow', 'deny', 'reject']:
+            raise Exception(f'Invalid rule command: must be "allow", "deny" or "reject". Rule: {" ".join(args)}')
         del args[0]
 
         # Parse optional interface
         interface = _parse_optional(args, 'on')
         protocol = _parse_optional(args, 'proto')
 
-        if direction == 'in':
-            address = _parse_optional(args, 'from')
-        else:
-            address = _parse_optional(args, 'to')
+        src_address = _parse_address(args, 'from')
+        src_port = None
+        if src_address is not None:
+            src_port = _parse_optional(args, 'port')
+            if src_port is not None:
+                src_port = int(src_port)
 
-        port = _parse_optional(args, 'port')
-        if port is not None:
-            port = int(port)
+        dst_address = _parse_address(args, 'to')
+        dst_port = None
+        if dst_address is not None:
+            dst_port = _parse_optional(args, 'port')
+            if dst_port is not None:
+                dst_port = int(dst_port)
 
-        if direction == 'input':
-            return InputRule(index=idx, command=command, interface=interface, protocol=protocol, address=address, port=port)
-        else:
-            return OutputRule(index=idx, command=command, interface=interface, protocol=protocol, address=address, port=port)
+        if len(args) > 0:
+            raise Exception(f'Invalid rule format, cannot parse remaining arguments "{" ".join(args)}". Rule: {" ".join(args)}')
 
-
-class InputRule(Rule):
-    @property
-    def direction(self) -> str:
-        return "input"
-
-
-class OutputRule(Rule):
-    @property
-    def direction(self) -> str:
-        return "output"
+        return Rule(index=idx, command=command, interface=interface, protocol=protocol, src_address=src_address, src_port=src_port, dst_address=dst_address, dst_port=dst_port)
 
 
 class Configuration(BaseModel):
@@ -87,7 +88,7 @@ class Configuration(BaseModel):
                          for key, label in labels.items()
                          if key.startswith(prefix)]
             rules_sorted = sorted(rules_raw, key=lambda item: item[0])
-            return [Rule.from_string(idx, direction, rule) for idx, rule in rules_sorted]
+            return [Rule.from_string(idx, rule) for idx, rule in rules_sorted]
 
         enabled = labels.get('dfw.enabled', False)
         input_default = labels.get('dfw.input.default', 'deny')

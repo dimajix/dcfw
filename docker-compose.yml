@@ -14,11 +14,10 @@ services:
     labels:
       - dfw.enabled=true
       - dfw.input.default=deny
-      #- dfw.input.rule.0=allow proto icmp
-      - dfw.input.rule.1=allow on eth0 proto tcp from 0.0.0.0/0 port 80
+      - dfw.input.rule.1=allow on eth0 proto tcp to any port 80
       - dfw.output.default=deny
-      #- dfw.output.rule.2=allow proto tcp to 192.168.150.6 port 8080
-      #- dfw.output.rule.3=deny on eth0 to 0.0.0.0/0
+      #- dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
+      #- dfw.output.rule.2=deny on eth0 to 0.0.0.0/0
     networks:
       - firewall-bridge
 
@@ -27,11 +26,10 @@ services:
     labels:
       - dfw.enabled=true
       - dfw.input.default=deny
-      #- dfw.input.rule.0=allow proto icmp
-      #- dfw.input.rule.1=allow on eth0 proto tcp from 0.0.0.0/0 port 80
+      - dfw.input.rule.1=allow on eth0 proto tcp from 192.168.110.0/24 to any port 80
       - dfw.output.default=deny
-      #- dfw.output.rule.2=allow proto tcp to 192.168.150.6 port 8080
-      #- dfw.output.rule.3=deny on eth0 to 0.0.0.0/0
+      #- dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
+      #- dfw.output.rule.2=deny on eth0 to 0.0.0.0/0
     networks:
       - firewall-macvlan
 
