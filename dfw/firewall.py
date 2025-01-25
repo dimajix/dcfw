@@ -3,6 +3,7 @@ import os
 import subprocess
 import pyptables
 from typing import Optional, Callable
+
 from docker.models.containers import Container
 from pyptables import BuiltinChain, UserChain, Tables, Table
 from pyptables.chains import AbstractChain
@@ -19,6 +20,36 @@ NETNS_DIR = '/var/run/netns'
 os.makedirs(NETNS_DIR, exist_ok=True)
 
 
+def rule(iface: Optional[str] = None, oface: Optional[str] = None, proto: Optional[str] = None,
+         src: Optional[str] = None, dst: Optional[str] = None, sport: Optional[int] = None, dport: Optional[int] = None,
+         match: Optional[str] = None, args: Optional[dict[str, str]] = None, target: str = 'ACCEPT',
+         comment: Optional[str] = None):
+    kwargs = dict()
+    if iface is not None:
+        kwargs['in_interface'] = iface
+    if oface is not None:
+        kwargs['out_interface'] = oface
+    if src is not None:
+        kwargs['source'] = src
+    if dst is not None:
+        kwargs['destination'] = dst
+    kwargs['jump'] = target
+    if proto:
+        kwargs['proto'] = proto
+        if sport is not None or dport is not None:
+            kwargs['match'] = proto
+        if sport is not None:
+            kwargs['sport'] = str(sport)
+        if dport is not None:
+            kwargs['dport'] = str(dport)
+    if match:
+        kwargs['match'] = match
+        kwargs.update(args)
+    if comment is not None:
+        kwargs['comment'] = comment
+    return pyptables.Rule(**kwargs)
+
+
 def policy(cmd:str) -> str:
     if cmd == 'allow':
         return 'ACCEPT'
@@ -32,7 +63,7 @@ def policy(cmd:str) -> str:
 
 def with_netns(container: Container, fun: Callable):
     pid = container.attrs['State']['Pid']
-    LOG.info(f'Entering netns of process {pid} for container {container.name}')
+    LOG.info(f'{container.name} - Entering netns of process {pid}')
     link_file = os.path.join("/var/run/netns", str(pid))
     try:
         os.remove(link_file)
@@ -43,10 +74,9 @@ def with_netns(container: Container, fun: Callable):
 
     pushns(str(pid))
     try:
-        subprocess.run(['iptables', '-S'])
         fun()
-        subprocess.run(['iptables-save', '-t', 'filter'])
     finally:
+        LOG.info(f'{container.name} - Leaving netns of process {pid}')
         popns()
 
 
@@ -66,50 +96,41 @@ class Firewall:
         else:
             self._flush()
 
+        subprocess.run(['iptables', '-S'])
+
+
     def _flush(self):
-        LOG.info('Remove all current filter tables')
+        LOG.info(f'{self.config.container_name} - Remove all current filter tables for container')
         subprocess.run(['iptables', '-t', 'filter', '-F'])
 
     def _apply_rules(self):
         # Add all rules from all chains
-        LOG.info('Collecting chains and rules from configuration')
+        LOG.info(f'{self.config.container_name} - Collecting chains and rules from container')
         chains = self._get_chains()
         tables = Tables(Table('filter', *chains))
         txt = tables.to_iptables()
-        LOG.info(txt)
+        LOG.debug(txt)
 
-        LOG.info('Applying tables via iptables-restore')
+        LOG.info(f'{self.config.container_name} - Applying tables via iptables-restore for container')
         subprocess.run(
             ["iptables-restore", "--table", "filter"],
             input=txt.encode('utf-8'),
         )
 
+    def _get_track_chain(self, policy: str):
+        if policy == 'allow':
+            return [
+                rule(proto='tcp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT',
+                     comment=DFW_BUILTIN_RULE + ' - track new TCP connections'),
+                rule(proto='udp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT',
+                     comment=DFW_BUILTIN_RULE + ' - track new UDP connections'),
+            ]
+        else:
+            return []
+
     def _get_chains(self) -> list[AbstractChain]:
-        def rule(iface:Optional[str]=None, oface:Optional[str]=None, proto:Optional[str]=None, src:Optional[str]=None, dst:Optional[str]=None, sport:Optional[int]=None, dport:Optional[int]=None, match:Optional[str]=None, args:Optional[dict[str,str]]=None, target:str='ACCEPT', comment:Optional[str]=None):
-            kwargs = dict()
-            if iface is not None:
-                kwargs['in_interface'] = iface
-            if oface is not None:
-                kwargs['out_interface'] = oface
-            if src is not None:
-                kwargs['source'] = src
-            if dst is not None:
-                kwargs['destination'] = dst
-            kwargs['jump'] = target
-            if proto:
-                kwargs['proto'] = proto
-                if sport is not None or dport is not None:
-                    kwargs['match'] = proto
-                if sport is not None:
-                    kwargs['sport'] = str(sport)
-                if dport is not None:
-                    kwargs['dport'] = str(dport)
-            if match:
-                kwargs['match'] = match
-                kwargs.update(args)
-            if comment is not None:
-                kwargs['comment'] = comment
-            return pyptables.Rule(**kwargs)
+        dfw_track_input = self._get_track_chain(self.config.input_default)
+        dfw_track_output = self._get_track_chain(self.config.output_default)
 
         return [
             BuiltinChain('INPUT', policy(self.config.input_default), rules=[
@@ -155,13 +176,13 @@ class Firewall:
                 rule(proto='udp', dport=68, target='dfw-default-input'),
                 rule(match='addrtype', args={'dst-type':'BROADCAST'}, target='dfw-default-input'),
             ]),
-            UserChain('dfw-track-input', comment='dfw-track-input', rules=[]),
+            UserChain('dfw-track-input', comment='dfw-track-input', rules=dfw_track_input),
             UserChain('dfw-default-input', comment='dfw-default-input', rules=[
                 rule(target=policy(self.config.input_default))
             ]),
 
             UserChain('dfw-before-output', comment='dfw-before-output', rules=[
-                rule(iface='lo', target='ACCEPT'),
+                rule(oface='lo', target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate': 'RELATED,ESTABLISHED'}, target='ACCEPT'),
                 rule(target='dfw-user-output')
             ]),
@@ -170,10 +191,7 @@ class Firewall:
                 for r in self.config.output_rules
             ]),
             UserChain('dfw-after-output', comment='dfw-after-output', rules=[]),
-            UserChain('dfw-track-output', comment='dfw-track-output', rules=[
-                rule(proto='tcp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - track new TCP connections'),
-                rule(proto='udp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - track new UDP connections'),
-            ]),
+            UserChain('dfw-track-output', comment='dfw-track-output', rules=dfw_track_output),
             UserChain('dfw-default-output', comment='dfw-default-output', rules=[
                 rule(target=policy(self.config.output_default))
             ]),

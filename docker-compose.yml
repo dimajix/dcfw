@@ -11,27 +11,66 @@ services:
 
   http-bridge:
     image: httpd:2.2-alpine
+    cap_drop:
+      - ALL
+    cap_add:
+      - CAP_CHOWN
+      - CAP_SETGID
+      - CAP_SETUID
+      - CAP_KILL
     labels:
       - dfw.enabled=true
       - dfw.input.default=deny
-      - dfw.input.rule.1=allow on eth0 proto tcp to any port 80
+      - dfw.input.rule.1=allow on eth0 proto tcp from 192.168.110.0/24 to any port 80
+      #- dfw.input.rule.2=allow on eth0 proto tcp from 172.16.64.0/24 to any port 80
       - dfw.output.default=deny
       #- dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
       #- dfw.output.rule.2=deny on eth0 to 0.0.0.0/0
     networks:
-      - firewall-bridge
+      firewall-bridge:
+        ipv4_address: 172.16.64.6
+
+  shell-bridge:
+    image: ubuntu:24.04
+    #cap_drop:
+    #  - ALL
+    cap_add:
+      - CAP_CHOWN
+      - CAP_SETGID
+      - CAP_SETUID
+      - CAP_DAC_OVERRIDE
+      - CAP_KILL
+    labels:
+      - dfw.enabled=true
+      - dfw.input.default=deny
+      - dfw.output.default=deny
+      - dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
+      - dfw.output.rule.3=allow proto tcp to 172.16.64.6 port 80
+    networks:
+      firewall-bridge:
+        ipv4_address: 172.16.64.7
 
   http-macvlan:
     image: httpd:2.2-alpine
+    cap_drop:
+      - ALL
+    cap_add:
+      - CAP_CHOWN
+      - CAP_SETGID
+      - CAP_SETUID
+      - CAP_KILL
     labels:
       - dfw.enabled=true
       - dfw.input.default=deny
       - dfw.input.rule.1=allow on eth0 proto tcp from 192.168.110.0/24 to any port 80
       - dfw.output.default=deny
+      - dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
+      - dfw.output.rule.2=allow proto tcp to 192.168.110.1 port 53
       #- dfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
       #- dfw.output.rule.2=deny on eth0 to 0.0.0.0/0
     networks:
-      - firewall-macvlan
+      firewall-macvlan:
+        ipv4_address: 192.168.110.2
 
 networks:
   firewall-bridge:

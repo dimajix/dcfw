@@ -1,7 +1,9 @@
+import logging
 from typing import Optional
-
 from docker.models.containers import Container
 from pydantic import BaseModel
+
+LOG = logging.getLogger(__name__)
 
 
 def _parse_optional(args: list[str], keyword: str) -> Optional[str]:
@@ -71,6 +73,7 @@ class Rule(BaseModel):
 
 
 class Configuration(BaseModel):
+    container_name: Optional[str] = None
     enabled: bool
     input_default: str
     output_default: str
@@ -106,4 +109,14 @@ class Configuration(BaseModel):
     @staticmethod
     def from_container(container: Container) -> "Configuration":
         labels = container.labels
-        return Configuration.from_labels(labels)
+        config = Configuration.from_labels(labels)
+        config.container_name = container.name
+        LOG.info(f"{config.container_name} - firewall enabled: {config.enabled}")
+        LOG.info(f"{config.container_name} - input default policy: {config.input_default}")
+        LOG.info(f"{config.container_name} - output default policy: {config.output_default}")
+        for rule in config.input_rules:
+            LOG.info(f"{config.container_name} - input rule: {rule}")
+        for rule in config.output_rules:
+            LOG.info(f"{config.container_name} - output rule: {rule}")
+
+        return config
