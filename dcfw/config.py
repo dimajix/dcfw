@@ -6,17 +6,32 @@ from pydantic import BaseModel
 LOG = logging.getLogger(__name__)
 
 
-def _parse_optional(args: list[str], keyword: str) -> Optional[str]:
+def _parse_kv(args: list[str], keyword: str) -> Optional[str]:
     if len(args) >= 2 and args[0] == keyword:
-        result = args[1]
         del args[0]
+        result = args[0]
         del args[0]
+        # Handle quotes
+        if result[0] == '"':
+            result = result[1:]
+            while result[-1] != '"':
+                result = result + ' ' + args[0]
+                del args[0]
+            if result[-1] == '"':
+                result = result[:-1]
     else:
         result = None
     return result
 
+def _parse_option(args: list[str], keyword: str) -> bool:
+    if len(args) >= 1 and args[0] == keyword:
+        del args[0]
+        return True
+    else:
+        return False
+
 def _parse_address(args: list[str], keyword: str) -> Optional[str]:
-    adr = _parse_optional(args, keyword)
+    adr = _parse_kv(args, keyword)
     if adr == 'any':
         adr = '0.0.0.0/0'
     return adr
@@ -25,12 +40,14 @@ def _parse_address(args: list[str], keyword: str) -> Optional[str]:
 class Rule(BaseModel):
     index: int
     command: str
-    interface: Optional[str]
-    protocol: Optional[str]
-    src_address: Optional[str]
-    src_port: Optional[int]
-    dst_address: Optional[str]
-    dst_port: Optional[int]
+    log: bool = False
+    comment: Optional[str] = None
+    interface: Optional[str] = None
+    protocol: Optional[str] = None
+    src_address: Optional[str] = None
+    src_port: Optional[int] = None
+    dst_address: Optional[str] = None
+    dst_port: Optional[int] = None
 
     @staticmethod
     def from_string(idx:int, rule:str) -> "Rule":
@@ -49,27 +66,30 @@ class Rule(BaseModel):
         del args[0]
 
         # Parse optional interface
-        interface = _parse_optional(args, 'on')
-        protocol = _parse_optional(args, 'proto')
+        interface = _parse_kv(args, 'on')
+        protocol = _parse_kv(args, 'proto')
+        log = _parse_option(args, 'log')
 
         src_address = _parse_address(args, 'from')
         src_port = None
         if src_address is not None:
-            src_port = _parse_optional(args, 'port')
+            src_port = _parse_kv(args, 'port')
             if src_port is not None:
                 src_port = int(src_port)
 
         dst_address = _parse_address(args, 'to')
         dst_port = None
         if dst_address is not None:
-            dst_port = _parse_optional(args, 'port')
+            dst_port = _parse_kv(args, 'port')
             if dst_port is not None:
                 dst_port = int(dst_port)
+
+        comment = _parse_kv(args, 'comment')
 
         if len(args) > 0:
             raise Exception(f'Invalid rule format, cannot parse remaining arguments "{" ".join(args)}". Rule: {" ".join(args)}')
 
-        return Rule(index=idx, command=command, interface=interface, protocol=protocol, src_address=src_address, src_port=src_port, dst_address=dst_address, dst_port=dst_port)
+        return Rule(index=idx, command=command, interface=interface, protocol=protocol, log=log, src_address=src_address, src_port=src_port, dst_address=dst_address, dst_port=dst_port, comment=comment)
 
 
 class Configuration(BaseModel):
@@ -86,16 +106,16 @@ class Configuration(BaseModel):
             return int(key.removeprefix(prefix))
 
         def parse_rules(direction:str) -> list[Rule]:
-            prefix = 'dfw.' + direction + '.rule.'
+            prefix = 'dcfw.' + direction + '.rule.'
             rules_raw = [(extract_int_key(prefix, key), label)
                          for key, label in labels.items()
                          if key.startswith(prefix)]
             rules_sorted = sorted(rules_raw, key=lambda item: item[0])
             return [Rule.from_string(idx, rule) for idx, rule in rules_sorted]
 
-        enabled = labels.get('dfw.enabled', False)
-        input_default = labels.get('dfw.input.default', 'deny')
-        output_default = labels.get('dfw.output.default', 'allow')
+        enabled = labels.get('dcfw.enabled', False)
+        input_default = labels.get('dcfw.input.default', 'deny')
+        output_default = labels.get('dcfw.output.default', 'allow')
         input_rules = parse_rules('input')
         output_rules = parse_rules('output')
         return Configuration(
@@ -107,8 +127,11 @@ class Configuration(BaseModel):
         )
 
     @staticmethod
-    def from_container(container: Container) -> "Configuration":
+    def from_container(container: Container) -> Optional["Configuration"]:
         labels = container.labels
+        if 'dcfw.enabled' not in labels:
+            return None
+
         config = Configuration.from_labels(labels)
         config.container_name = container.name
         LOG.info(f"{config.container_name} - firewall enabled: {config.enabled}")

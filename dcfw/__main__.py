@@ -1,11 +1,9 @@
 import logging
 import sys
-
 import docker
 
-from dfw.config import Configuration
-from dfw.firewall import Firewall
-from dfw.listener import Listener
+from dcfw import process_container
+from dcfw.listener import Listener
 
 LOG = logging.getLogger(__name__)
 
@@ -20,9 +18,7 @@ def main() -> None:
 
     for container in client.containers.list():
         LOG.info(f"Processing container {container.name}")
-        config = Configuration.from_container(container)
-        fw = Firewall(config)
-        fw.apply(container)
+        process_container(container)
 
     # Now watch for changes
     listener = Listener(client)

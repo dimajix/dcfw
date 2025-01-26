@@ -9,12 +9,12 @@ from pyptables import BuiltinChain, UserChain, Tables, Table
 from pyptables.chains import AbstractChain
 from pyroute2.netns import pushns, popns
 
-from dfw.config import Configuration
+from dcfw.config import Configuration
 
 
 LOG = logging.getLogger(__name__)
-DFW_BUILTIN_RULE = 'dfw builtin rule'
-DFW_USER_RULE = 'dfw user rule'
+DCFW_BUILTIN_RULE = 'dcfw builtin rule'
+DCFW_USER_RULE = 'dcfw user rule'
 
 NETNS_DIR = '/var/run/netns'
 os.makedirs(NETNS_DIR, exist_ok=True)
@@ -121,9 +121,9 @@ class Firewall:
         if policy == 'allow':
             return [
                 rule(proto='tcp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT',
-                     comment=DFW_BUILTIN_RULE + ' - track new TCP connections'),
+                     comment=DCFW_BUILTIN_RULE + ' - track new TCP connections'),
                 rule(proto='udp', match='conntrack', args={'ctstate': 'NEW'}, target='ACCEPT',
-                     comment=DFW_BUILTIN_RULE + ' - track new UDP connections'),
+                     comment=DCFW_BUILTIN_RULE + ' - track new UDP connections'),
             ]
         else:
             return []
@@ -151,19 +151,19 @@ class Firewall:
                 rule(iface='lo', target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate':'RELATED,ESTABLISHED'}, target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate':'INVALID'}, target='DROP'),
-                rule(proto='icmp', match='icmp', args={'icmp-type':'3'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow ICMP'),
-                rule(proto='icmp', match='icmp', args={'icmp-type':'4'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow ICMP'),
-                rule(proto='icmp', match='icmp', args={'icmp-type':'11'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow ICMP'),
-                rule(proto='icmp', match='icmp', args={'icmp-type':'12'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow ICMP'),
-                rule(proto='icmp', match='icmp', args={'icmp-type':'8'}, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow ICMP'),
-                rule(proto='udp', sport=67, dport=68, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - allow DHCP'),
+                rule(proto='icmp', match='icmp', args={'icmp-type':'3'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
+                rule(proto='icmp', match='icmp', args={'icmp-type':'4'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
+                rule(proto='icmp', match='icmp', args={'icmp-type':'11'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
+                rule(proto='icmp', match='icmp', args={'icmp-type':'12'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
+                rule(proto='icmp', match='icmp', args={'icmp-type':'8'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
+                rule(proto='udp', sport=67, dport=68, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow DHCP'),
                 rule(target='dfw-not-local'),
-                rule(proto='udp', dst='224.0.0.251/32', dport=5353, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - accept mDNS requests'),
-                rule(proto='udp', dst='239.255.255.250/32', dport=1900, target='ACCEPT', comment=DFW_BUILTIN_RULE + ' - accept SSDP requests'),
+                rule(proto='udp', dst='224.0.0.251/32', dport=5353, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept mDNS requests'),
+                rule(proto='udp', dst='239.255.255.250/32', dport=1900, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept SSDP requests'),
                 rule(target='dfw-user-input')
             ]),
             UserChain('dfw-user-input', comment='dfw-user-input', rules=[
-                rule(proto=r.protocol, iface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=DFW_USER_RULE)
+                rule(proto=r.protocol, iface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=r.comment if r.comment is not None else DCFW_USER_RULE)
                 for r in self.config.input_rules
             ]),
             UserChain('dfw-after-input', comment='dfw-after-input', rules=[
@@ -187,7 +187,7 @@ class Firewall:
                 rule(target='dfw-user-output')
             ]),
             UserChain('dfw-user-output', comment='dfw-user-output', rules=[
-                rule(proto=r.protocol, oface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=DFW_USER_RULE)
+                rule(proto=r.protocol, oface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=r.comment if r.comment is not None else DCFW_USER_RULE)
                 for r in self.config.output_rules
             ]),
             UserChain('dfw-after-output', comment='dfw-after-output', rules=[]),
@@ -197,9 +197,9 @@ class Firewall:
             ]),
 
             UserChain('dfw-not-local', comment='dfw-not-local - drop traffic not for this host', rules=[
-                rule(match='addrtype', args={'dst-type': 'LOCAL'}, target='RETURN', comment=DFW_BUILTIN_RULE + ' - allow unicast traffic to this host'),
-                rule(match='addrtype', args={'dst-type': 'MULTICAST'}, target='RETURN', comment=DFW_BUILTIN_RULE + ' - allow multicast traffic to this host'),
-                rule(match='addrtype', args={'dst-type': 'BROADCAST'}, target='RETURN', comment=DFW_BUILTIN_RULE + ' - allow broadcast traffic to this host'),
-                rule(target='DROP', comment=DFW_BUILTIN_RULE + ' - drop traffic not for this host'),
+                rule(match='addrtype', args={'dst-type': 'LOCAL'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow unicast traffic to this host'),
+                rule(match='addrtype', args={'dst-type': 'MULTICAST'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow multicast traffic to this host'),
+                rule(match='addrtype', args={'dst-type': 'BROADCAST'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow broadcast traffic to this host'),
+                rule(target='DROP', comment=DCFW_BUILTIN_RULE + ' - drop traffic not for this host'),
             ]),
         ]
