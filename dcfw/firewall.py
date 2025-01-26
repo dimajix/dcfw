@@ -61,24 +61,37 @@ def policy(cmd:str) -> str:
         raise ValueError(f'Unknown policy {cmd}')
 
 
-def with_netns(container: Container, fun: Callable):
-    pid = container.attrs['State']['Pid']
-    LOG.info(f'{container.name} - Entering netns of process {pid}')
-    link_file = os.path.join("/var/run/netns", str(pid))
-    try:
-        os.remove(link_file)
-    except FileNotFoundError:
-        pass
-    netns_file = os.path.join("/proc", str(pid), "ns/net")
-    os.symlink(netns_file, link_file)
+class Namespace:
+    pid: int
+    container_name: str
+    proc_dir: str
 
-    pushns(str(pid))
-    try:
-        fun()
-    finally:
-        LOG.info(f'{container.name} - Leaving netns of process {pid}')
-        popns()
+    def __init__(self, pid: int, container_name: str, proc_dir: str):
+        self.pid = pid
+        self.container_name = container_name
+        self.proc_dir = proc_dir
 
+    def execute(self, fun:Callable) -> None:
+        LOG.info(f'{self.container_name} - Entering netns of process {self.pid}')
+        link_file = os.path.join(NETNS_DIR, str(self.pid))
+        try:
+            os.remove(link_file)
+        except FileNotFoundError:
+            pass
+        netns_file = os.path.join(self.proc_dir, str(self.pid), "ns/net")
+        os.symlink(netns_file, link_file)
+
+        pushns(str(self.pid))
+        try:
+            fun()
+        finally:
+            LOG.info(f'{self.container_name} - Leaving netns of process {self.pid}')
+            popns()
+
+    @staticmethod
+    def from_container(container: Container, proc_dir:str) -> "Namespace":
+        pid = container.attrs['State']['Pid']
+        return Namespace(pid=pid, container_name=container.name, proc_dir=proc_dir)
 
 
 class Firewall:
@@ -87,10 +100,7 @@ class Firewall:
     def __init__(self, config: Configuration):
         self.config = config
 
-    def apply(self, container: Container):
-        with_netns(container, self._apply)
-
-    def _apply(self):
+    def apply(self):
         if self.config.enabled:
             self._apply_rules()
         else:

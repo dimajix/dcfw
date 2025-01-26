@@ -1,28 +1,5 @@
-import logging
 import sys
-import docker
-
-from dcfw import process_container
-from dcfw.listener import Listener
-
-LOG = logging.getLogger(__name__)
-
-
-def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    client = docker.from_env()
-
-    for container in client.containers.list():
-        LOG.info(f"Processing container {container.name}")
-        process_container(container)
-
-    # Now watch for changes
-    listener = Listener(client)
-    listener.listen()
+from dcfw.app import main
 
 
 if __name__ == '__main__':

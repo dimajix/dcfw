@@ -5,24 +5,27 @@ RUN apk add musl-dev gcc
 
 # Create virtual env
 WORKDIR /app
-RUN python -m venv /usr/app/venv
+RUN python -m venv /app/dcfw/venv
 
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/dcfw/venv/bin:$PATH"
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY requirements.txt /tmp
+RUN pip install -r /tmp/requirements.txt
 
 # Install application
-COPY dcfw /app
+COPY dcfw /app/dcfw/lib/dcfw
 
 
 FROM python:3.13-alpine
 
 LABEL authors="k.kupferschmidt@dimajix.de"
 
+RUN apk add iptables
+
 WORKDIR /app
 
 COPY --from=builder /app .
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/dcfw/venv/bin:$PATH"
+ENV PYTHONPATH="/app/dcfw/lib"
 
-#ENTRYPOINT ["top", "-b"]
+ENTRYPOINT ["python", "-m", "dcfw"]

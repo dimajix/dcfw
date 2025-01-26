@@ -2,3 +2,4 @@ pyroute2==0.8.1
 docker==7.1.0
 pydantic==2.10.6
 pyptables==1.0.7
+click==8.1.8
