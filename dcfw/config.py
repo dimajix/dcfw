@@ -95,8 +95,8 @@ class Rule(BaseModel):
 class Configuration(BaseModel):
     container_name: Optional[str] = None
     enabled: bool
-    input_default: str
-    output_default: str
+    input_policy: str
+    output_policy: str
     input_rules: list[Rule]
     output_rules: list[Rule]
 
@@ -113,15 +113,15 @@ class Configuration(BaseModel):
             rules_sorted = sorted(rules_raw, key=lambda item: item[0])
             return [Rule.from_string(idx, rule) for idx, rule in rules_sorted]
 
-        enabled = labels.get('dcfw.enabled', False)
-        input_default = labels.get('dcfw.input.default', 'deny')
-        output_default = labels.get('dcfw.output.default', 'allow')
+        enabled = labels.get('dcfw.enable', False)
+        input_policy = labels.get('dcfw.input.policy', 'deny')
+        output_policy = labels.get('dcfw.output.policy', 'allow')
         input_rules = parse_rules('input')
         output_rules = parse_rules('output')
         return Configuration(
             enabled=enabled,
-            input_default=input_default,
-            output_default=output_default,
+            input_policy=input_policy,
+            output_policy=output_policy,
             input_rules=input_rules,
             output_rules=output_rules
         )
@@ -129,14 +129,14 @@ class Configuration(BaseModel):
     @staticmethod
     def from_container(container: Container) -> Optional["Configuration"]:
         labels = container.labels
-        if 'dcfw.enabled' not in labels:
+        if 'dcfw.enable' not in labels:
             return None
 
         config = Configuration.from_labels(labels)
         config.container_name = container.name
         LOG.info(f"{config.container_name} - firewall enabled: {config.enabled}")
-        LOG.info(f"{config.container_name} - input default policy: {config.input_default}")
-        LOG.info(f"{config.container_name} - output default policy: {config.output_default}")
+        LOG.info(f"{config.container_name} - input default policy: {config.input_policy}")
+        LOG.info(f"{config.container_name} - output default policy: {config.output_policy}")
         for rule in config.input_rules:
             LOG.info(f"{config.container_name} - input rule: {rule}")
         for rule in config.output_rules:

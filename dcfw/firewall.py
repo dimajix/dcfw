@@ -139,25 +139,25 @@ class Firewall:
             return []
 
     def _get_chains(self) -> list[AbstractChain]:
-        dfw_track_input = self._get_track_chain(self.config.input_default)
-        dfw_track_output = self._get_track_chain(self.config.output_default)
+        dfw_track_input = self._get_track_chain(self.config.input_policy)
+        dfw_track_output = self._get_track_chain(self.config.output_policy)
 
         return [
-            BuiltinChain('INPUT', policy(self.config.input_default), rules=[
-                rule(target='dfw-before-input'),
-                rule(target='dfw-after-input'),
-                #rule(target='dfw-reject-input'),
-                rule(target='dfw-track-input'),
+            BuiltinChain('INPUT', policy(self.config.input_policy), rules=[
+                rule(target='dcfw-before-input'),
+                rule(target='dcfw-after-input'),
+                #rule(target='dcfw-reject-input'),
+                rule(target='dcfw-track-input'),
             ]),
-            BuiltinChain('OUTPUT', policy(self.config.output_default), rules=[
-                rule(target='dfw-before-output'),
-                rule(target='dfw-after-output'),
-                #rule(target='dfw-reject-output'),
-                rule(target='dfw-track-output'),
+            BuiltinChain('OUTPUT', policy(self.config.output_policy), rules=[
+                rule(target='dcfw-before-output'),
+                rule(target='dcfw-after-output'),
+                #rule(target='dcfw-reject-output'),
+                rule(target='dcfw-track-output'),
             ]),
             BuiltinChain('FORWARD', 'DROP', rules=[]),
 
-            UserChain('dfw-before-input', comment='dfw-before-input', rules=[
+            UserChain('dcfw-before-input', comment='dcfw-before-input', rules=[
                 rule(iface='lo', target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate':'RELATED,ESTABLISHED'}, target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate':'INVALID'}, target='DROP'),
@@ -167,46 +167,46 @@ class Firewall:
                 rule(proto='icmp', match='icmp', args={'icmp-type':'12'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
                 rule(proto='icmp', match='icmp', args={'icmp-type':'8'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
                 rule(proto='udp', sport=67, dport=68, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow DHCP'),
-                rule(target='dfw-not-local'),
+                rule(target='dcfw-not-local'),
                 rule(proto='udp', dst='224.0.0.251/32', dport=5353, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept mDNS requests'),
                 rule(proto='udp', dst='239.255.255.250/32', dport=1900, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept SSDP requests'),
-                rule(target='dfw-user-input')
+                rule(target='dcfw-user-input')
             ]),
-            UserChain('dfw-user-input', comment='dfw-user-input', rules=[
+            UserChain('dcfw-user-input', comment='dcfw-user-input', rules=[
                 rule(proto=r.protocol, iface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=r.comment if r.comment is not None else DCFW_USER_RULE)
                 for r in self.config.input_rules
             ]),
-            UserChain('dfw-after-input', comment='dfw-after-input', rules=[
-                rule(proto='udp', dport=137, target='dfw-default-input'),
-                rule(proto='udp', dport=138, target='dfw-default-input'),
-                rule(proto='udp', dport=139, target='dfw-default-input'),
-                rule(proto='tcp', dport=445, target='dfw-default-input'),
-                rule(proto='tcp', dport=137, target='dfw-default-input'),
-                rule(proto='udp', dport=67, target='dfw-default-input'),
-                rule(proto='udp', dport=68, target='dfw-default-input'),
-                rule(match='addrtype', args={'dst-type':'BROADCAST'}, target='dfw-default-input'),
+            UserChain('dcfw-after-input', comment='dcfw-after-input', rules=[
+                rule(proto='udp', dport=137, target='dcfw-default-input'),
+                rule(proto='udp', dport=138, target='dcfw-default-input'),
+                rule(proto='udp', dport=139, target='dcfw-default-input'),
+                rule(proto='tcp', dport=445, target='dcfw-default-input'),
+                rule(proto='tcp', dport=137, target='dcfw-default-input'),
+                rule(proto='udp', dport=67, target='dcfw-default-input'),
+                rule(proto='udp', dport=68, target='dcfw-default-input'),
+                rule(match='addrtype', args={'dst-type':'BROADCAST'}, target='dcfw-default-input'),
             ]),
-            UserChain('dfw-track-input', comment='dfw-track-input', rules=dfw_track_input),
-            UserChain('dfw-default-input', comment='dfw-default-input', rules=[
-                rule(target=policy(self.config.input_default))
+            UserChain('dcfw-track-input', comment='dcfw-track-input', rules=dfw_track_input),
+            UserChain('dcfw-default-input', comment='dcfw-default-input', rules=[
+                rule(target=policy(self.config.input_policy))
             ]),
 
-            UserChain('dfw-before-output', comment='dfw-before-output', rules=[
+            UserChain('dcfw-before-output', comment='dcfw-before-output', rules=[
                 rule(oface='lo', target='ACCEPT'),
                 rule(match='conntrack', args={'ctstate': 'RELATED,ESTABLISHED'}, target='ACCEPT'),
-                rule(target='dfw-user-output')
+                rule(target='dcfw-user-output')
             ]),
-            UserChain('dfw-user-output', comment='dfw-user-output', rules=[
+            UserChain('dcfw-user-output', comment='dcfw-user-output', rules=[
                 rule(proto=r.protocol, oface=r.interface, src=r.src_address, sport=r.src_port, dst=r.dst_address, dport=r.dst_port, target=policy(r.command), comment=r.comment if r.comment is not None else DCFW_USER_RULE)
                 for r in self.config.output_rules
             ]),
-            UserChain('dfw-after-output', comment='dfw-after-output', rules=[]),
-            UserChain('dfw-track-output', comment='dfw-track-output', rules=dfw_track_output),
-            UserChain('dfw-default-output', comment='dfw-default-output', rules=[
-                rule(target=policy(self.config.output_default))
+            UserChain('dcfw-after-output', comment='dcfw-after-output', rules=[]),
+            UserChain('dcfw-track-output', comment='dcfw-track-output', rules=dfw_track_output),
+            UserChain('dcfw-default-output', comment='dcfw-default-output', rules=[
+                rule(target=policy(self.config.output_policy))
             ]),
 
-            UserChain('dfw-not-local', comment='dfw-not-local - drop traffic not for this host', rules=[
+            UserChain('dcfw-not-local', comment='dcfw-not-local - drop traffic not for this host', rules=[
                 rule(match='addrtype', args={'dst-type': 'LOCAL'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow unicast traffic to this host'),
                 rule(match='addrtype', args={'dst-type': 'MULTICAST'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow multicast traffic to this host'),
                 rule(match='addrtype', args={'dst-type': 'BROADCAST'}, target='RETURN', comment=DCFW_BUILTIN_RULE + ' - allow broadcast traffic to this host'),

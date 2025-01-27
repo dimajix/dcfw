@@ -13,6 +13,7 @@ COPY requirements.txt /tmp
 RUN pip install -r /tmp/requirements.txt
 
 # Install application
+COPY bin /app/dcfw/bin
 COPY dcfw /app/dcfw/lib/dcfw
 
 
