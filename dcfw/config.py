@@ -65,10 +65,12 @@ class Rule(BaseModel):
             raise Exception(f'Invalid rule command: must be "allow", "deny" or "reject". Rule: {" ".join(args)}')
         del args[0]
 
+        # Parse log
+        log = _parse_option(args, 'log')
+
         # Parse optional interface
         interface = _parse_kv(args, 'on')
         protocol = _parse_kv(args, 'proto')
-        log = _parse_option(args, 'log')
 
         src_address = _parse_address(args, 'from')
         src_port = None
@@ -94,6 +96,7 @@ class Rule(BaseModel):
 
 class Configuration(BaseModel):
     container_name: Optional[str] = None
+    container_id: Optional[str] = None
     enabled: bool
     input_policy: str
     output_policy: str
@@ -134,6 +137,7 @@ class Configuration(BaseModel):
 
         config = Configuration.from_labels(labels)
         config.container_name = container.name
+        config.container_id = container.id
         LOG.info(f"{config.container_name} - firewall enabled: {config.enabled}")
         LOG.info(f"{config.container_name} - input default policy: {config.input_policy}")
         LOG.info(f"{config.container_name} - output default policy: {config.output_policy}")

@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 import click
 import docker
@@ -15,7 +14,7 @@ class Application:
         self.proc_dir = proc_dir
         self.client = docker.from_env()
 
-    def run(self):
+    def run(self) -> None:
         from dcfw.listener import Listener
 
         self._apply_active_containers()
@@ -23,7 +22,7 @@ class Application:
         listener = Listener(self)
         listener.listen()
 
-    def process_container(self, container: Container):
+    def process_container(self, container: Container) -> None:
         from dcfw.config import Configuration
         from dcfw.firewall import Firewall
         from dcfw.firewall import Namespace
@@ -37,7 +36,7 @@ class Application:
         else:
             LOG.info(f"No firewall configuration found in container {container.name}")
 
-    def _apply_active_containers(self):
+    def _apply_active_containers(self) -> None:
         for container in self.client.containers.list():
             try:
                 LOG.info(f"Processing container {container.name}")

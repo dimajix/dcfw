@@ -16,7 +16,7 @@ It's the poor man's alternative to Kubernetes service meshes.
 ## How can I specify container rules?
 
 ```
-allow|deny|reject [on INTERFACE] [log] [proto PROTOCOL] [from ADDRESS [port PORT] [to ADDRESS [port PORT] [comment COMMENT]
+allow|deny|reject [log] [on INTERFACE] [proto PROTOCOL] [from ADDRESS [port PORT] [to ADDRESS [port PORT] [comment COMMENT]
 ```
 
 * `INTERFACE = eth0, eth1, ...`
@@ -24,6 +24,12 @@ allow|deny|reject [on INTERFACE] [log] [proto PROTOCOL] [from ADDRESS [port PORT
 * `ADDRESS = 1.2.3.4 or 10.0.0.0/24`
 * `PORT = 0-65535`
 * `COMMENT = "comment"`
+
+## I don't see any logging!
+
+```shell
+sudo sysctl net.netfilter.nf_log_all_netns=1      
+```
 
 
 ## Example

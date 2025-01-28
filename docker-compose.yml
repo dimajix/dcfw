@@ -34,8 +34,8 @@ services:
     labels:
       - dcfw.enable=true
       - dcfw.input.policy=deny
-      - dcfw.input.rule.1=allow on eth0 proto tcp from 192.168.110.0/24 to any port 80
-      #- dcfw.input.rule.2=allow on eth0 proto tcp from 172.16.64.0/24 to any port 80
+      - dcfw.input.rule.1=allow log on eth0 proto tcp from 192.168.110.0/24 to any port 80
+      - dcfw.input.rule.2=allow log on eth0 proto tcp from 172.16.64.0/24 to any port 80
       - dcfw.output.policy=deny
       #- dcfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080
       #- dcfw.output.rule.2=deny on eth0 to 0.0.0.0/0
@@ -57,8 +57,8 @@ services:
       - dcfw.enable=true
       - dcfw.input.policy=deny
       - dcfw.output.policy=deny
-      - dcfw.output.rule.1=allow proto tcp to 192.168.150.6 port 8080 comment "Allow communication to proxy"
-      - dcfw.output.rule.3=allow proto tcp to 172.16.64.6 port 80 comment "Allow communication to web server"
+      - dcfw.output.rule.1=allow log proto tcp to 192.168.150.6 port 8080 comment "Allow communication to proxy"
+      - dcfw.output.rule.3=allow log proto tcp to 172.16.64.6 port 80 comment "Allow communication to web server"
     networks:
       firewall-bridge:
         ipv4_address: 172.16.64.7
@@ -75,10 +75,10 @@ services:
     labels:
       dcfw.enable: true
       dcfw.input.policy: deny
-      dcfw.input.rule.1: allow on eth0 proto tcp from 192.168.110.0/24 to any port 80
+      dcfw.input.rule.1: allow log on eth0 proto tcp from 192.168.110.0/24 to any port 80
       dcfw.output.policy: deny
-      dcfw.output.rule.1: allow proto tcp to 192.168.150.6 port 8080
-      dcfw.output.rule.2: allow proto tcp to 192.168.110.1 port 53
+      dcfw.output.rule.1: allow log proto tcp to 192.168.150.6 port 8080
+      dcfw.output.rule.2: allow log proto tcp to 192.168.110.1 port 53
       #dcfw.output.rule.1: allow proto tcp to 192.168.150.6 port 8080
       #dcfw.output.rule.2: deny on eth0 to 0.0.0.0/0
     networks:
