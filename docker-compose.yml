@@ -1,5 +1,5 @@
 services:
-  firewall:
+  dcfw:
     image: dimajix/dcfw
     build:
       context: .
@@ -9,11 +9,13 @@ services:
       - ALL
     cap_add:
       - CAP_NET_ADMIN
-      - CAP_KILL
+      - CAP_NET_BIND_SERVICE
       - CAP_SYS_ADMIN
+      - CAP_KILL
       - CAP_CHOWN
       - CAP_SETGID
       - CAP_SETUID
+      - CAP_DAC_OVERRIDE
     command:
       - --proc-dir=/host/proc
     volumes:
@@ -24,6 +26,7 @@ services:
 
   http-bridge:
     image: httpd:2.2-alpine
+    read_only: true
     cap_drop:
       - ALL
     cap_add:
@@ -65,6 +68,7 @@ services:
 
   http-macvlan:
     image: httpd:2.2-alpine
+    read_only: true
     cap_drop:
       - ALL
     cap_add:
