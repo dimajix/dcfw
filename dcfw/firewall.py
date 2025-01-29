@@ -220,8 +220,8 @@ class Firewall:
                 rule(proto='icmp', match='icmp', args={'icmp-type':'8'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow ICMP'),
                 rule(proto='udp', sport=67, dport=68, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow DHCP'),
                 rule(target='dcfw-not-local'),
-                rule(proto='udp', dst='224.0.0.251/32', dport=5353, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept mDNS requests'),
-                rule(proto='udp', dst='239.255.255.250/32', dport=1900, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept SSDP requests'),
+                rule(proto='udp', dst='224.0.0.251', dport=5353, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept mDNS requests'),
+                #rule(proto='udp', dst='239.255.255.250', dport=1900, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept SSDP requests'),
                 rule(target='dcfw-user-input')
             ]),
             UserChain('dcfw-user-input', comment='dcfw-user-input', rules=[
@@ -237,6 +237,7 @@ class Firewall:
                 rule(proto='tcp', dport=137, target='dcfw-default-input'),
                 rule(proto='udp', dport=67, target='dcfw-default-input'),
                 rule(proto='udp', dport=68, target='dcfw-default-input'),
+                rule(proto='udp', match='addrtype', args={'dst-type':'MULTICAST'}, target='dcfw-default-input'),
                 rule(match='addrtype', args={'dst-type':'BROADCAST'}, target='dcfw-default-input'),
             ]),
             UserChain('dcfw-reject-input', comment='dcfw-reject-input', rules=dcfw_reject_input),
@@ -253,7 +254,10 @@ class Firewall:
                 for r in self.config.output_rules
             ]),
             #UserChain('dcfw-user-logging-output', comment='dcfw-user-logging-output', rules=[]),
-            UserChain('dcfw-after-output', comment='dcfw-after-output', rules=[]),
+            UserChain('dcfw-after-output', comment='dcfw-after-output', rules=[
+                rule(proto='igmp', match='addrtype', args={'dst-type':'MULTICAST'}, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - allow IGMP'),
+                rule(proto='udp', dst='224.0.0.251', dport=5353, target='ACCEPT', comment=DCFW_BUILTIN_RULE + ' - accept mDNS requests'),
+            ]),
             UserChain('dcfw-track-output', comment='dcfw-track-output', rules=dfw_track_output),
             UserChain('dcfw-reject-output', comment='dcfw-reject-output', rules=dcfw_reject_output),
             UserChain('dcfw-default-output', comment='dcfw-default-output', rules=dcfw_default_output),

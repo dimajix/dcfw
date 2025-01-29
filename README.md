@@ -3,7 +3,7 @@
 ## What is DCFW?
 
 The Docker Container Firewall is a small Python application, which injects firewall rules into Docker containers.
-It's the poor man's alternative to Kubernetes service meshes.
+It's the poor man's alternative to service meshes in Kubernetes clusters.
 
 ## What Problem does DCFW solve?
 
