@@ -1,35 +1,38 @@
 # DCFW - The Docker Container Firewall
 
+[![GitHub Repo stars](https://img.shields.io/github/stars/dimajix/dcfw)](https://github.com/dimajix/dcfw)
+[![Docker Pulls](https://img.shields.io/docker/pulls/dimajix/dcfw)](https://hub.docker.com/r/dimajix/dcfw)
+![GitHub License](https://img.shields.io/github/license/dimajix/dcfw)
 
-## What is DCFW?
+## 💡 What is DCFW?
 
 The Docker Container Firewall is a small Python application, which injects firewall rules into Docker containers.
 It's the poor man's alternative to service meshes in Kubernetes clusters.
 
 
-## What problem does DCFW solve?
+## 🤔 What problem does DCFW solve?
 
 Some people like myself use Docker containers to publish some private services on the internet. Typical examples
 are NextCloud, GitLab, project tracking software and more. Moreover, many people including myself do this from
 their home using their private internet connection by opening a port on their internet router.
 
 ```text
-  +--------------------------------------------------------------------+
-  |    Private Home Network                                            |
-  |                    +---------------------+                   +----------+
-  |       +------------+    Network Switch   +-------------------+  Router  +------- Internet
-  |       |            +----+--------------+-+                   +----------+
-  |       |                 |              |                           |
-  |  +----+----+   +--------+-+   +--------+----------------------+    |
-  |  | Your PC |   | Your NAS |   |                               |    |
-  |  +---------+   +----------+   |  +-----------+   +--------+   |    |
-  |                               |  | NextCloud |   |  git   |   |    |
-  |                               |  +-----------+   +--------+   |    |
-  |                               |                               |    |
-  |                               |           Docker Host         |    |
-  |                               +-------------------------------+    |
-  |                                                                    |
-  +--------------------------------------------------------------------+
+  +--------------------------------------------------------------------------------+
+  |    Your Private Home Network                                                   |
+  |                    +---------------------+                               +----------+
+  |       +------------+    Network Switch   +-------------------------------+  Router  +------- Internet
+  |       |            +----+--------------+-+                               +----------+
+  |       |                 |              |                                       |
+  |  +----+----+   +--------+-+   +--------+----------------------------------+    |
+  |  | Your PC |   | Your NAS |   |        Public Services                    |    |
+  |  +---------+   +----------+   |  +-----------+   +--------+   +--------+  |    |
+  |                               |  | NextCloud |   |  git   |   |  dcfw  |  |    |
+  |                               |  +-----------+   +--------+   +--------+  |    |
+  |                               |                                           |    |
+  |                               |               Your Docker Host            |    |
+  |                               +-------------------------------------------+    |
+  |                                                                                |
+  +--------------------------------------------------------------------------------+
 ```
 In itself, this works perfectly fine. But now, think about security implications of publishing services to the 
 internet. Of course, you need to keep all services up to date to ensure that the latest security patches are applied. 
@@ -56,7 +59,7 @@ for good reasons). This is where DCFW comes into play, which enables you to add 
 container, and they are implemented within each container.
 
 
-## How is DCFW different from ufw-docker?
+## 🐶🐱 How is DCFW different from ufw-docker?
 
 ufw-docker is a different solution which provides some firewall capabilities for Docker. The main difference is
 that ufw-docker works on the Docker host itself and adds firewall rules, which then are evaluated for all traffic
@@ -70,7 +73,7 @@ inside `docker-compose.yml` files (where they logically belong to) instead of be
 table on the Docker host.
 
 
-## How does DCFW work?
+## 🤓 How does DCFW work?
 
 DCFW scans the labels of all running Docker containers, and extract firewall rules from them. Then, DCFW applies
 the firewall rules *inside the Docker container itself*. For the technical inclined people, dcfw enters the
@@ -79,12 +82,12 @@ DCFW needs appropriate privileges (Linux capabilities). The container itself doe
 these capabilities, otherwise a successful attacker could simply disable the firewall rules of the container.
 
 
-## How can I use DCFW?
+## 🚀 How can I use DCFW?
 
 DCFW is designed to be simple to use. Basically, you need to run DCFW inside a Docker container and add labels
 to all Docker containers which should be protected by DCFW.
 
-### 1. Start DCFW inside a Docker container
+### ⏩ 1. Start DCFW inside a Docker container
 
 You can start DCFW inside a Docker container. Since DCFW needs to access the network namespace of other containers,
 it needs to have access to the `/proc` directory of the Docker host. Moreover, DCFW also needs several privileges
@@ -128,7 +131,7 @@ services:
 ```
 
 
-### 2. Add `dcfw.*` labels to Docker containers
+### 🏷️ 2. Add `dcfw.*` labels to Docker containers
 
 In order to enable the firewall for a specific Docker container, you need to add some labels:
 * `dcfw.enable: [true|false]` enables or disables DCFW for this container. If there is no label `dcfw.enable`, then 
@@ -164,6 +167,7 @@ a source `port` number. Port numbers also need a protocol, otherwise they don't 
 * Finally, you can also specify a `comment`. The `COMMENT` is an arbitrary quoted string, which is simply attached
 to the iptables rules. It only has informational character and does not otherwise change the behaviour.
 
+### 👉 Example
 An example for a web server might look as follows:
 ```yaml
 services:
@@ -237,14 +241,14 @@ networks:
           gateway: 172.16.64.1
 ```
 
-## What are important limitations of DCFW?
+## 🚧 What are important limitations of DCFW?
 
 * DCFW currently only supports IP addresses and IP networks in rules. Unfortunately, you cannot use DNS host names in
 rules. Therefore, you should use static IP addresses whenever possible. 
 * DCFW currently only supports IPv4.
 
 
-## FAQ
+## 👆 FAQ
 
 ### I don't see any logging!
 DCFW will log all packets blocked by the default input and output policy. Additionally, DCFW will also log all packets
@@ -261,3 +265,7 @@ iptables rules of all containers (actually of all network namespaces) via the fo
 ```shell
 sudo sysctl net.netfilter.nf_log_all_netns=1      
 ```
+
+## 📜 License
+
+This project is licensed under GNU General Public License 3.0 - see the [COPYING](COPYING) file for details.
